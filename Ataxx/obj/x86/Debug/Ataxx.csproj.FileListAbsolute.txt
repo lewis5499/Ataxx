@@ -1,0 +1,43 @@
+C:\Users\admin\Desktop\ataxx\我的 同化棋\bin\Debug\Form1.resx
+C:\Users\admin\Desktop\ataxx\我的 同化棋\bin\Debug\Form1.Designer.cs
+C:\Users\admin\Desktop\ataxx\我的 同化棋\bin\Debug\Form1.cs
+C:\Users\admin\Desktop\ataxx\我的 同化棋\bin\Debug\我的 同化棋.exe
+C:\Users\admin\Desktop\ataxx\我的 同化棋\bin\Debug\我的 同化棋.pdb
+C:\Users\admin\Desktop\ataxx\我的 同化棋\obj\x86\Debug\Ataxx.csprojAssemblyReference.cache
+C:\Users\admin\Desktop\ataxx\我的 同化棋\obj\x86\Debug\Ataxx.Form1.resources
+C:\Users\admin\Desktop\ataxx\我的 同化棋\obj\x86\Debug\我的_同化棋.Properties.Resources.resources
+C:\Users\admin\Desktop\ataxx\我的 同化棋\obj\x86\Debug\Ataxx.csproj.GenerateResource.cache
+C:\Users\admin\Desktop\ataxx\我的 同化棋\obj\x86\Debug\Ataxx.csproj.CoreCompileInputs.cache
+C:\Users\admin\Desktop\ataxx\我的 同化棋\obj\x86\Debug\我的 同化棋.exe
+C:\Users\admin\Desktop\ataxx\我的 同化棋\obj\x86\Debug\我的 同化棋.pdb
+C:\Users\admin\Desktop\ataxx\Ataxx\bin\Debug\Form1.resx
+C:\Users\admin\Desktop\ataxx\Ataxx\bin\Debug\Form1.cs
+C:\Users\admin\Desktop\ataxx\Ataxx\bin\Debug\Form1.Designer.cs
+C:\Users\admin\Desktop\ataxx\Ataxx\bin\Debug\Ataxx.exe.config
+C:\Users\admin\Desktop\ataxx\Ataxx\bin\Debug\Ataxx.exe
+C:\Users\admin\Desktop\ataxx\Ataxx\bin\Debug\Ataxx.pdb
+C:\Users\admin\Desktop\ataxx\Ataxx\obj\x86\Debug\Ataxx.csprojAssemblyReference.cache
+C:\Users\admin\Desktop\ataxx\Ataxx\obj\x86\Debug\Ataxx.Form1.resources
+C:\Users\admin\Desktop\ataxx\Ataxx\obj\x86\Debug\Ataxx.Properties.Resources.resources
+C:\Users\admin\Desktop\ataxx\Ataxx\obj\x86\Debug\Ataxx.csproj.GenerateResource.cache
+C:\Users\admin\Desktop\ataxx\Ataxx\obj\x86\Debug\Ataxx.csproj.CoreCompileInputs.cache
+C:\Users\admin\Desktop\ataxx\Ataxx\obj\x86\Debug\Ataxx.exe
+C:\Users\admin\Desktop\ataxx\Ataxx\obj\x86\Debug\Ataxx.pdb
+C:\Users\admin\Desktop\ataxx\Ataxx\bin\Debug\ClassLibrary.dll
+C:\Users\admin\Desktop\ataxx\Ataxx\bin\Debug\ClassLibrary.pdb
+C:\Users\admin\Desktop\ataxx\Ataxx\obj\x86\Debug\Ataxx.csproj.CopyComplete
+C:\Users\Lewis\Desktop\ataxx\Ataxx\bin\Debug\Form1.resx
+C:\Users\Lewis\Desktop\ataxx\Ataxx\bin\Debug\Form1.Designer.cs
+C:\Users\Lewis\Desktop\ataxx\Ataxx\bin\Debug\Form1.cs
+C:\Users\Lewis\Desktop\ataxx\Ataxx\bin\Debug\Ataxx.exe.config
+C:\Users\Lewis\Desktop\ataxx\Ataxx\bin\Debug\Ataxx.exe
+C:\Users\Lewis\Desktop\ataxx\Ataxx\bin\Debug\Ataxx.pdb
+C:\Users\Lewis\Desktop\ataxx\Ataxx\bin\Debug\ClassLibrary.pdb
+C:\Users\Lewis\Desktop\ataxx\Ataxx\obj\x86\Debug\Ataxx.csprojAssemblyReference.cache
+C:\Users\Lewis\Desktop\ataxx\Ataxx\obj\x86\Debug\Ataxx.Form1.resources
+C:\Users\Lewis\Desktop\ataxx\Ataxx\obj\x86\Debug\Ataxx.Properties.Resources.resources
+C:\Users\Lewis\Desktop\ataxx\Ataxx\obj\x86\Debug\Ataxx.csproj.GenerateResource.cache
+C:\Users\Lewis\Desktop\ataxx\Ataxx\obj\x86\Debug\Ataxx.csproj.CoreCompileInputs.cache
+C:\Users\Lewis\Desktop\ataxx\Ataxx\obj\x86\Debug\Ataxx.csproj.CopyComplete
+C:\Users\Lewis\Desktop\ataxx\Ataxx\obj\x86\Debug\Ataxx.exe
+C:\Users\Lewis\Desktop\ataxx\Ataxx\obj\x86\Debug\Ataxx.pdb

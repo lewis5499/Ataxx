@@ -1,0 +1,12 @@
+F:\GitHub\ataxx\Ataxx\bin\Release\Form1.resx
+F:\GitHub\ataxx\Ataxx\bin\Release\Form1.cs
+F:\GitHub\ataxx\Ataxx\bin\Release\Form1.Designer.cs
+F:\GitHub\ataxx\Ataxx\bin\Release\Ataxx.exe.config
+F:\GitHub\ataxx\Ataxx\bin\Release\Ataxx.exe
+F:\GitHub\ataxx\Ataxx\bin\Release\Ataxx.pdb
+F:\GitHub\ataxx\Ataxx\obj\x86\Release\Ataxx.Form1.resources
+F:\GitHub\ataxx\Ataxx\obj\x86\Release\Ataxx.Properties.Resources.resources
+F:\GitHub\ataxx\Ataxx\obj\x86\Release\Ataxx.csproj.GenerateResource.cache
+F:\GitHub\ataxx\Ataxx\obj\x86\Release\Ataxx.csproj.CoreCompileInputs.cache
+F:\GitHub\ataxx\Ataxx\obj\x86\Release\Ataxx.exe
+F:\GitHub\ataxx\Ataxx\obj\x86\Release\Ataxx.pdb
