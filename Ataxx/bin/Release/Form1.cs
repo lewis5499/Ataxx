@@ -306,70 +306,36 @@ namespace Ataxx
         bool Reset = true;//是否重置游戏，打开程序默认初始重置
         bool JudgeGameStart = false;//判断对战（PVP或PVE）是否开始
         int[,] initGridInfo = new int[7, 7];//定义一个行棋最初始化的棋盘，四角各有一个棋子
-        static int score1 = 0;//1为白，白方得分
-        static int score2 = 0;//2为黑，黑棋得分
+        static int score1 = 0, score2 = 0;//1为白，白方得分
 
-        //下面是画棋盘用的
-        int Row = 7;
-        int Column = 7;
-        int squ = 294 / 7;
-        //end
+        //棋盘格子间距
+        int squ = 81;//294 / 7=42
 
         int StepSum = 0;//操作步数
         int[,] GridInfo = new int[7, 7];//当前棋盘信息
-        int xFirst;//mouse down事件中记录的：鼠标按下选定要操作棋子位置的坐标
-        int yFirst;
-        int xSecond;//mouse up事件中记录的：鼠标抬起将棋子拖到最终位置的坐标
-        int ySecond;
-        int C = 1;//color，1为白，2为黑，默认白棋先行
+        int xFirst,yFirst;//mouse down事件中记录的：鼠标按下选定要操作棋子位置的坐标
+        int xSecond,ySecond;//mouse up事件中记录的：鼠标抬起将棋子拖到最终位置的坐标
+        int Color = 1;//color，1为白，2为黑，默认白棋先行
         bool R;//true为PVP对战，false为PVE对战
 
-        int xDown;//画辅助矩形可行棋盘范围坐标
-        int yDown;
+        int xDown, yDown;//画辅助矩形可行棋盘范围坐标
+
+        DrawGraph draw = new DrawGraph();
+        Point p1 = new Point();
+        Point p2 = new Point();
+        Point p = new Point();
+
         public Form1()
         {
             InitializeComponent();
+            CenterToScreen();
         }
-        public void DrawBoard()
-        {
-            Graphics g = CreateGraphics();
-            for (int rowIndex = 0; rowIndex < Row; rowIndex++)//外层控制行数
-            {
-                for (int colIndex = 0; colIndex < Column; colIndex++)//内层循环控制每行的列数
-                {
-                    g.DrawRectangle(Pens.Black, new Rectangle(50 + colIndex * squ, 50 + rowIndex * squ, squ, squ));
-                    g.FillRectangle(Brushes.BurlyWood, new Rectangle(50 + colIndex * squ + 1, 50 + rowIndex * squ + 1, squ - 1, squ - 1));
-                }
-            }
-        }//画棋盘的方法    
-        public void Draw(int[,] Array, int x, int y)
-        {
-            Graphics g = this.CreateGraphics();
-            if (Array[x, y] == 0)
-            {
-                g.FillRectangle(Brushes.BurlyWood, new Rectangle(x * squ + 51, y * squ + 51, squ - 1, squ - 1));
-            }
-            else if (Array[x, y] == 1)
-            {
-                g.FillEllipse(Brushes.White, new Rectangle(51 + squ * x, 51 + squ * y, squ - 2, squ - 2));
-            }
-            else if (Array[x, y] == 2)
-            {
-                g.FillEllipse(Brushes.Black, new Rectangle(x * squ + 51, y * squ + 51, squ - 2, squ - 2));
-            }
-
-            else if (Array[x, y] == 3)
-            {
-                g.FillRectangle(Brushes.PaleGoldenrod, new Rectangle(x * squ + 51, y * squ + 51, squ - 1, squ - 1));
-            }
-            else if (Array[x, y] == 4)
-            {
-                g.FillRectangle(Brushes.PaleGreen, new Rectangle(x * squ + 51, y * squ + 51, squ - 1, squ - 1));
-            }
-        }//坐标值为0则清空,坐标值为1则画白格，坐标值为2则画黑格，坐标值为3则画淡橘黄色，坐标值为4画淡绿色
         public void init()
         {
-            DrawBoard(); C = 1;
+            Graphics g = CreateGraphics();
+            
+            draw.DrawBoard(ref g);
+            Color = 1;
             for (int i = 0; i < 7; i++)
             {
                 for (int j = 0; j < 7; j++)
@@ -382,14 +348,14 @@ namespace Ataxx
             GridInfo[6, 0] = 2;
             GridInfo[6, 6] = 1;
 
-            Draw(GridInfo, 0, 0);
-            Draw(GridInfo, 0, 6);
-            Draw(GridInfo, 6, 0);
-            Draw(GridInfo, 6, 6);
+            draw.Draw(ref g, GridInfo, 0, 0);
+            draw.Draw(ref g, GridInfo, 0, 6);
+            draw.Draw(ref g, GridInfo, 6, 0);
+            draw.Draw(ref g, GridInfo, 6, 6);
             CountPieces(); label9.Text = StepSum.ToString();//算棋子数，并显示
             ConvertGridData();
         }//初始化当前棋盘，算棋子数，并显示
-        public void DrawRec(int k)
+        public void DrawRec(ref Graphics g, int k)
         {
             int c; int d;
             int[,] pan = new int[5, 5];
@@ -398,10 +364,8 @@ namespace Ataxx
                 {
                     pan[i, j] = 0;
                 }
-            Graphics g = CreateGraphics();
-            Point p1 = new Point();
             p1 = Control.MousePosition;
-            Point p = this.PointToClient(p1);
+            p = this.PointToClient(p1);
             xDown = (int)((p.X - 50) / squ);
             yDown = (int)((p.Y - 50) / squ);
             if (xDown == 0 && yDown == 0)//左上角绘方格
@@ -413,7 +377,7 @@ namespace Ataxx
                         {
                             pan[0, 0]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -426,7 +390,7 @@ namespace Ataxx
                         {
                             pan[1, 0]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -439,7 +403,7 @@ namespace Ataxx
                         {
                             pan[2, 0]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -452,7 +416,7 @@ namespace Ataxx
                         {
                             pan[3, 0]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -465,7 +429,7 @@ namespace Ataxx
                         {
                             pan[4, 0]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -478,7 +442,7 @@ namespace Ataxx
                         {
                             pan[0, 1]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -491,7 +455,7 @@ namespace Ataxx
                         {
                             pan[1, 1]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -503,7 +467,7 @@ namespace Ataxx
                         if (GridInfo[c, d] == 0)
                         {
                             pan[2, 1]++; GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -516,7 +480,7 @@ namespace Ataxx
                         {
                             pan[3, 1]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -529,7 +493,7 @@ namespace Ataxx
                         {
                             pan[4, 1]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -542,7 +506,7 @@ namespace Ataxx
                         {
                             pan[0, 2]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -555,7 +519,7 @@ namespace Ataxx
                         {
                             pan[1, 2]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -568,7 +532,7 @@ namespace Ataxx
                         {
                             pan[2, 2]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -581,7 +545,7 @@ namespace Ataxx
                         {
                             pan[3, 2]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -594,7 +558,7 @@ namespace Ataxx
                         {
                             pan[4, 2]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -607,7 +571,7 @@ namespace Ataxx
                         {
                             pan[0, 3]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -620,7 +584,7 @@ namespace Ataxx
                         {
                             pan[1, 3]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -633,7 +597,7 @@ namespace Ataxx
                         {
                             pan[2, 3]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -646,7 +610,7 @@ namespace Ataxx
                         {
                             pan[3, 3]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -659,7 +623,7 @@ namespace Ataxx
                         {
                             pan[4, 3]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -672,7 +636,7 @@ namespace Ataxx
                         {
                             pan[0, 4]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -685,7 +649,7 @@ namespace Ataxx
                         {
                             pan[1, 4]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -698,7 +662,7 @@ namespace Ataxx
                         {
                             pan[2, 4]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -711,7 +675,7 @@ namespace Ataxx
                         {
                             pan[3, 4]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
@@ -724,25 +688,26 @@ namespace Ataxx
                         {
                             pan[4, 4]++;
                             GridInfo[c, d] = k;
-                            Draw(GridInfo, c, d);
+                            draw.Draw(ref g, GridInfo, c, d);
                         }
                     }
             }
         }  //找出规定区域：画辅助矩形可行棋盘范围
         public void SetZero(int[,] arr)
         {
+            Graphics g = CreateGraphics();
             for (int i = 0; i < 7; i++)
                 for (int j = 0; j < 7; j++)
                 {
                     if (arr[i, j] == 3)
                     {
                         arr[i, j] = 0;
-                        Draw(arr, i, j);
+                        draw.Draw(ref g, arr, i, j);
                     }
                     else if (arr[i, j] == 4)
                     {
                         arr[i, j] = 0;
-                        Draw(arr, i, j);
+                        draw.Draw(ref g, arr, i, j);
                     }
                 }
         }//遍历功能，非1非2的都置为0：画辅助矩形时3，4作为颜色写入到当前棋盘信息（gridinfo），为避免影响画完就刷掉
@@ -772,9 +737,10 @@ namespace Ataxx
             {
                 textBox1.Clear();
                 label9.Text = StepSum.ToString();
-                Point p1 = new Point();
+                Graphics g = CreateGraphics();
+                //Point p1 = new Point();
                 p1 = Control.MousePosition;
-                Point p = this.PointToClient(p1);
+                p = this.PointToClient(p1);
                 //Historylist.Add(GridInfo);
                 if (50 <= p.X && p.X <= (50 + squ * 7) && p.Y <= 50 + squ * 7 && p.Y >= 50)
                 {
@@ -788,22 +754,22 @@ namespace Ataxx
                     if (R == true)//pvp
                     {
 
-                        if (C == 1)
+                        if (Color == 1)
                         {
                             if (GridInfo[xFirst, yFirst] == 1)
                             {
-                                DrawRec(3);
+                                DrawRec(ref g, 3);
                             }
                             else if (GridInfo[xFirst, yFirst] == 2)
                             {
                                 textBox1.Text = ("请对手落子");
                             }
                         }
-                        else if (C == 2)
+                        else if (Color == 2)
                         {
                             if (GridInfo[xFirst, yFirst] == 2)
                             {
-                                DrawRec(4);
+                                DrawRec(ref g, 4);
                             }
                             else if (GridInfo[xFirst, yFirst] == 1)
                             {
@@ -816,7 +782,7 @@ namespace Ataxx
                         {
                             if (GridInfo[xFirst, yFirst] == 1)
                             {
-                                DrawRec(3);
+                                DrawRec(ref g, 3);
                             }
                             else if (GridInfo[xFirst, yFirst] == 2)
                             {
@@ -834,9 +800,9 @@ namespace Ataxx
         }//记录鼠标落下的棋子坐标//调动函数行棋的关键事件
         public void PiecesSet(int a)
         {
-            Point p2 = new Point();
+            //Point p2 = new Point();
             p2 = Control.MousePosition;
-            Point p = this.PointToClient(p2);
+            p = this.PointToClient(p2);
             if (50 <= p.X && p.X <= (50 + squ * 7) && p.Y <= 50 + squ * 7 && p.Y >= 50)
             {
                 Graphics g = this.CreateGraphics();
@@ -850,7 +816,7 @@ namespace Ataxx
                         || (xSecond == xFirst && ySecond == yFirst + 1) || (xSecond == xFirst + 1 && ySecond == yFirst + 1))
                     {
                         GridInfo[xSecond, ySecond] = a;
-                        Draw(GridInfo, xSecond, ySecond);
+                        draw.Draw(ref g, GridInfo, xSecond, ySecond);
 
                     }
                     if ((xSecond == xFirst - 2 && ySecond == yFirst - 2) || (xSecond == xFirst - 2 && ySecond == yFirst - 1)
@@ -863,9 +829,9 @@ namespace Ataxx
                      || (xSecond == xFirst && ySecond == yFirst - 2) || (xSecond == xFirst + 1 && ySecond == yFirst - 2))
                     {
                         GridInfo[xSecond, ySecond] = a;
-                        Draw(GridInfo, xSecond, ySecond);
+                        draw.Draw(ref g, GridInfo, xSecond, ySecond);
                         GridInfo[xFirst, yFirst] = 0;
-                        Draw(GridInfo, xFirst, yFirst);
+                        draw.Draw(ref g, GridInfo, xFirst, yFirst);
                     }
                 }
             }
@@ -874,9 +840,9 @@ namespace Ataxx
         {
             if (Reset == false)
             {
-                Point p2 = new Point();
+                //Point p2 = new Point();
                 p2 = Control.MousePosition;
-                Point p = this.PointToClient(p2);
+                p = this.PointToClient(p2);
 
                 if (50 <= p.X && p.X <= (50 + squ * 7) && p.Y <= 50 + squ * 7 && p.Y >= 50)
                 {
@@ -889,17 +855,17 @@ namespace Ataxx
                         {
                             if ((xSecond - xFirst <= 2 && xSecond - xFirst >= -2) && (ySecond - yFirst <= 2 && ySecond - yFirst >= -2))
                             {
-                                if (GridInfo[xFirst, yFirst] == 1 && C == 1)
+                                if (GridInfo[xFirst, yFirst] == 1 && Color == 1)
                                 {
                                     SetZero(GridInfo);
-                                    PiecesSet(1); Process(2, 1); CountPieces(); C = 2; label10.Text = "●";
+                                    PiecesSet(1); Process(2, 1); CountPieces(); Color = 2; label10.Text = "●";
                                     StepSum++; label9.Text = StepSum.ToString(); WinJudgement();
                                     //bestchoice（） c=1
                                 }
-                                else if (GridInfo[xFirst, yFirst] == 2 && C == 2)
+                                else if (GridInfo[xFirst, yFirst] == 2 && Color == 2)
                                 {
                                     SetZero(GridInfo);
-                                    PiecesSet(2); Process(1, 2); CountPieces(); C = 1; label10.Text = "○";
+                                    PiecesSet(2); Process(1, 2); CountPieces(); Color = 1; label10.Text = "○";
                                     StepSum++; label9.Text = StepSum.ToString(); WinJudgement();
                                 }
                                 for (int i = 0; i < 7; i++)
@@ -909,17 +875,17 @@ namespace Ataxx
                                         history[StepSum, i, j] = GridInfo[i, j];
                                     }
                                 }
-                                Exchange(C);
-                                if (Exchange(C) == 0)
+                                Exchange(Color);
+                                if (Exchange(Color) == 0)
                                 {
-                                    if (C == 1)
+                                    if (Color == 1)
                                     {
-                                        C = 2;
+                                        Color = 2;
                                         label10.Text = "●";
                                     }
                                     else
                                     {
-                                        C = 1;
+                                        Color = 1;
                                         label10.Text = "○";
                                     }
                                 }
@@ -965,92 +931,93 @@ namespace Ataxx
         }//记录鼠标弹起时的坐标,并走棋//调动函数行棋的关键事件
         public void Process(int c, int d)
         {
+            Graphics g = CreateGraphics();
             if (xSecond == 0 && ySecond == 0)//判断左上角棋子
             {
                 if (GridInfo[xSecond + 1, ySecond] == c)
-                { GridInfo[xSecond + 1, ySecond] = d; Draw(GridInfo, xSecond + 1, ySecond); }
+                { GridInfo[xSecond + 1, ySecond] = d; draw.Draw(ref g, GridInfo, xSecond + 1, ySecond); }
                 if (GridInfo[xSecond + 1, ySecond + 1] == c)
-                { GridInfo[xSecond + 1, ySecond + 1] = d; Draw(GridInfo, xSecond + 1, ySecond + 1); }
+                { GridInfo[xSecond + 1, ySecond + 1] = d; draw.Draw(ref g, GridInfo, xSecond + 1, ySecond + 1); }
                 if (GridInfo[xSecond, ySecond + 1] == c)
-                { GridInfo[xSecond, ySecond + 1] = d; Draw(GridInfo, xSecond, ySecond + 1); }
+                { GridInfo[xSecond, ySecond + 1] = d; draw.Draw(ref g, GridInfo, xSecond, ySecond + 1); }
             }
             if (xSecond == 0 && ySecond == 6)//判断左下角棋子
             {
                 if (GridInfo[xSecond + 1, ySecond] == c)
-                { GridInfo[xSecond + 1, ySecond] = d; Draw(GridInfo, xSecond + 1, ySecond); }
+                { GridInfo[xSecond + 1, ySecond] = d; draw.Draw(ref g, GridInfo, xSecond + 1, ySecond); }
                 if (GridInfo[xSecond + 1, ySecond - 1] == c)
-                { GridInfo[xSecond + 1, ySecond - 1] = d; Draw(GridInfo, xSecond + 1, ySecond - 1); }
+                { GridInfo[xSecond + 1, ySecond - 1] = d; draw.Draw(ref g, GridInfo, xSecond + 1, ySecond - 1); }
                 if (GridInfo[xSecond, ySecond - 1] == c)
-                { GridInfo[xSecond, ySecond - 1] = d; Draw(GridInfo, xSecond, ySecond - 1); }
+                { GridInfo[xSecond, ySecond - 1] = d; draw.Draw(ref g, GridInfo, xSecond, ySecond - 1); }
             }
             if (xSecond == 6 && ySecond == 0)//判断右上角棋子
             {
                 if (GridInfo[xSecond - 1, ySecond] == c)
-                { GridInfo[xSecond - 1, ySecond] = d; Draw(GridInfo, xSecond - 1, ySecond); }
+                { GridInfo[xSecond - 1, ySecond] = d; draw.Draw(ref g, GridInfo, xSecond - 1, ySecond); }
                 if (GridInfo[xSecond - 1, ySecond + 1] == c)
-                { GridInfo[xSecond - 1, ySecond + 1] = d; Draw(GridInfo, xSecond - 1, ySecond + 1); }
+                { GridInfo[xSecond - 1, ySecond + 1] = d; draw.Draw(ref g, GridInfo, xSecond - 1, ySecond + 1); }
                 if (GridInfo[xSecond, ySecond + 1] == c)
-                { GridInfo[xSecond, ySecond + 1] = d; Draw(GridInfo, xSecond, ySecond + 1); }
+                { GridInfo[xSecond, ySecond + 1] = d; draw.Draw(ref g, GridInfo, xSecond, ySecond + 1); }
             }
             if (xSecond == 6 && ySecond == 6)//判断右下角棋子
             {
                 if (GridInfo[xSecond - 1, ySecond] == c)
-                { GridInfo[xSecond - 1, ySecond] = d; Draw(GridInfo, xSecond - 1, ySecond); }
+                { GridInfo[xSecond - 1, ySecond] = d; draw.Draw(ref g, GridInfo, xSecond - 1, ySecond); }
                 if (GridInfo[xSecond - 1, ySecond - 1] == c)
-                { GridInfo[xSecond - 1, ySecond - 1] = d; Draw(GridInfo, xSecond - 1, ySecond - 1); }
+                { GridInfo[xSecond - 1, ySecond - 1] = d; draw.Draw(ref g, GridInfo, xSecond - 1, ySecond - 1); }
                 if (GridInfo[xSecond, ySecond - 1] == c)
-                { GridInfo[xSecond, ySecond - 1] = d; Draw(GridInfo, xSecond, ySecond - 1); }
+                { GridInfo[xSecond, ySecond - 1] = d; draw.Draw(ref g, GridInfo, xSecond, ySecond - 1); }
             }
             if (xSecond == 0 && ySecond != 0 && ySecond != 6)//判断最左列棋子
             {
-                if (GridInfo[xSecond + 1, ySecond] == c) { GridInfo[xSecond + 1, ySecond] = d; Draw(GridInfo, xSecond + 1, ySecond); }
-                if (GridInfo[xSecond + 1, ySecond + 1] == c) { GridInfo[xSecond + 1, ySecond + 1] = d; Draw(GridInfo, xSecond + 1, ySecond + 1); }
-                if (GridInfo[xSecond + 1, ySecond - 1] == c) { GridInfo[xSecond + 1, ySecond - 1] = d; Draw(GridInfo, xSecond + 1, ySecond - 1); }
-                if (GridInfo[xSecond, ySecond - 1] == c) { GridInfo[xSecond, ySecond - 1] = d; Draw(GridInfo, xSecond, ySecond - 1); }
-                if (GridInfo[xSecond, ySecond + 1] == c) { GridInfo[xSecond, ySecond + 1] = d; Draw(GridInfo, xSecond, ySecond + 1); }
+                if (GridInfo[xSecond + 1, ySecond] == c) { GridInfo[xSecond + 1, ySecond] = d; draw.Draw(ref g, GridInfo, xSecond + 1, ySecond); }
+                if (GridInfo[xSecond + 1, ySecond + 1] == c) { GridInfo[xSecond + 1, ySecond + 1] = d; draw.Draw(ref g, GridInfo, xSecond + 1, ySecond + 1); }
+                if (GridInfo[xSecond + 1, ySecond - 1] == c) { GridInfo[xSecond + 1, ySecond - 1] = d; draw.Draw(ref g, GridInfo, xSecond + 1, ySecond - 1); }
+                if (GridInfo[xSecond, ySecond - 1] == c) { GridInfo[xSecond, ySecond - 1] = d; draw.Draw(ref g, GridInfo, xSecond, ySecond - 1); }
+                if (GridInfo[xSecond, ySecond + 1] == c) { GridInfo[xSecond, ySecond + 1] = d; draw.Draw(ref g, GridInfo, xSecond, ySecond + 1); }
             }
             if (ySecond == 0 && xSecond != 0 && xSecond != 6)//判断最上行棋子
             {
-                if (GridInfo[xSecond + 1, ySecond] == c) { GridInfo[xSecond + 1, ySecond] = d; Draw(GridInfo, xSecond + 1, ySecond); }
-                if (GridInfo[xSecond + 1, ySecond + 1] == c) { GridInfo[xSecond + 1, ySecond + 1] = d; Draw(GridInfo, xSecond + 1, ySecond + 1); }
-                if (GridInfo[xSecond, ySecond + 1] == c) { GridInfo[xSecond, ySecond + 1] = d; Draw(GridInfo, xSecond, ySecond + 1); }
-                if (GridInfo[xSecond - 1, ySecond] == c) { GridInfo[xSecond - 1, ySecond] = d; Draw(GridInfo, xSecond - 1, ySecond); }
-                if (GridInfo[xSecond - 1, ySecond + 1] == c) { GridInfo[xSecond - 1, ySecond + 1] = d; Draw(GridInfo, xSecond - 1, ySecond + 1); }
+                if (GridInfo[xSecond + 1, ySecond] == c) { GridInfo[xSecond + 1, ySecond] = d; draw.Draw(ref g, GridInfo, xSecond + 1, ySecond); }
+                if (GridInfo[xSecond + 1, ySecond + 1] == c) { GridInfo[xSecond + 1, ySecond + 1] = d; draw.Draw(ref g, GridInfo, xSecond + 1, ySecond + 1); }
+                if (GridInfo[xSecond, ySecond + 1] == c) { GridInfo[xSecond, ySecond + 1] = d; draw.Draw(ref g, GridInfo, xSecond, ySecond + 1); }
+                if (GridInfo[xSecond - 1, ySecond] == c) { GridInfo[xSecond - 1, ySecond] = d; draw.Draw(ref g, GridInfo, xSecond - 1, ySecond); }
+                if (GridInfo[xSecond - 1, ySecond + 1] == c) { GridInfo[xSecond - 1, ySecond + 1] = d; draw.Draw(ref g, GridInfo, xSecond - 1, ySecond + 1); }
             }
             if (xSecond == 6 && ySecond != 0 && ySecond != 6)//判断最右列棋子
             {
-                if (GridInfo[xSecond, ySecond - 1] == c) { GridInfo[xSecond, ySecond - 1] = d; Draw(GridInfo, xSecond, ySecond - 1); }
-                if (GridInfo[xSecond, ySecond + 1] == c) { GridInfo[xSecond, ySecond + 1] = d; Draw(GridInfo, xSecond, ySecond + 1); }
-                if (GridInfo[xSecond - 1, ySecond] == c) { GridInfo[xSecond - 1, ySecond] = d; Draw(GridInfo, xSecond - 1, ySecond); }
-                if (GridInfo[xSecond - 1, ySecond - 1] == c) { GridInfo[xSecond - 1, ySecond - 1] = d; Draw(GridInfo, xSecond - 1, ySecond - 1); }
-                if (GridInfo[xSecond - 1, ySecond + 1] == c) { GridInfo[xSecond - 1, ySecond + 1] = d; Draw(GridInfo, xSecond - 1, ySecond + 1); }
+                if (GridInfo[xSecond, ySecond - 1] == c) { GridInfo[xSecond, ySecond - 1] = d; draw.Draw(ref g, GridInfo, xSecond, ySecond - 1); }
+                if (GridInfo[xSecond, ySecond + 1] == c) { GridInfo[xSecond, ySecond + 1] = d; draw.Draw(ref g, GridInfo, xSecond, ySecond + 1); }
+                if (GridInfo[xSecond - 1, ySecond] == c) { GridInfo[xSecond - 1, ySecond] = d; draw.Draw(ref g, GridInfo, xSecond - 1, ySecond); }
+                if (GridInfo[xSecond - 1, ySecond - 1] == c) { GridInfo[xSecond - 1, ySecond - 1] = d; draw.Draw(ref g, GridInfo, xSecond - 1, ySecond - 1); }
+                if (GridInfo[xSecond - 1, ySecond + 1] == c) { GridInfo[xSecond - 1, ySecond + 1] = d; draw.Draw(ref g, GridInfo, xSecond - 1, ySecond + 1); }
             }
             if (ySecond == 6 && xSecond != 0 && xSecond != 6)//判断最下行棋子
             {
-                if (GridInfo[xSecond + 1, ySecond] == c) { GridInfo[xSecond + 1, ySecond] = d; Draw(GridInfo, xSecond + 1, ySecond); }
-                if (GridInfo[xSecond + 1, ySecond - 1] == c) { GridInfo[xSecond + 1, ySecond - 1] = d; Draw(GridInfo, xSecond + 1, ySecond - 1); }
-                if (GridInfo[xSecond, ySecond - 1] == c) { GridInfo[xSecond, ySecond - 1] = d; Draw(GridInfo, xSecond, ySecond - 1); }
-                if (GridInfo[xSecond - 1, ySecond] == c) { GridInfo[xSecond - 1, ySecond] = d; Draw(GridInfo, xSecond - 1, ySecond); }
-                if (GridInfo[xSecond - 1, ySecond - 1] == c) { GridInfo[xSecond - 1, ySecond - 1] = d; Draw(GridInfo, xSecond - 1, ySecond - 1); }
+                if (GridInfo[xSecond + 1, ySecond] == c) { GridInfo[xSecond + 1, ySecond] = d; draw.Draw(ref g, GridInfo, xSecond + 1, ySecond); }
+                if (GridInfo[xSecond + 1, ySecond - 1] == c) { GridInfo[xSecond + 1, ySecond - 1] = d; draw.Draw(ref g, GridInfo, xSecond + 1, ySecond - 1); }
+                if (GridInfo[xSecond, ySecond - 1] == c) { GridInfo[xSecond, ySecond - 1] = d; draw.Draw(ref g, GridInfo, xSecond, ySecond - 1); }
+                if (GridInfo[xSecond - 1, ySecond] == c) { GridInfo[xSecond - 1, ySecond] = d; draw.Draw(ref g, GridInfo, xSecond - 1, ySecond); }
+                if (GridInfo[xSecond - 1, ySecond - 1] == c) { GridInfo[xSecond - 1, ySecond - 1] = d; draw.Draw(ref g, GridInfo, xSecond - 1, ySecond - 1); }
             }
             if (xSecond != 0 && xSecond != 6 && ySecond != 0 && ySecond != 6)//判断5*5内部棋子
             {
                 if (GridInfo[xSecond + 1, ySecond] == c)
-                { GridInfo[xSecond + 1, ySecond] = d; Draw(GridInfo, xSecond + 1, ySecond); }
+                { GridInfo[xSecond + 1, ySecond] = d; draw.Draw(ref g, GridInfo, xSecond + 1, ySecond); }
                 if (GridInfo[xSecond + 1, ySecond + 1] == c)
-                { GridInfo[xSecond + 1, ySecond + 1] = d; Draw(GridInfo, xSecond + 1, ySecond + 1); }
+                { GridInfo[xSecond + 1, ySecond + 1] = d; draw.Draw(ref g, GridInfo, xSecond + 1, ySecond + 1); }
                 if (GridInfo[xSecond + 1, ySecond - 1] == c)
-                { GridInfo[xSecond + 1, ySecond - 1] = d; Draw(GridInfo, xSecond + 1, ySecond - 1); }
+                { GridInfo[xSecond + 1, ySecond - 1] = d; draw.Draw(ref g, GridInfo, xSecond + 1, ySecond - 1); }
                 if (GridInfo[xSecond, ySecond - 1] == c)
-                { GridInfo[xSecond, ySecond - 1] = d; Draw(GridInfo, xSecond, ySecond - 1); }
+                { GridInfo[xSecond, ySecond - 1] = d; draw.Draw(ref g, GridInfo, xSecond, ySecond - 1); }
                 if (GridInfo[xSecond, ySecond + 1] == c)
-                { GridInfo[xSecond, ySecond + 1] = d; Draw(GridInfo, xSecond, ySecond + 1); }
+                { GridInfo[xSecond, ySecond + 1] = d; draw.Draw(ref g, GridInfo, xSecond, ySecond + 1); }
                 if (GridInfo[xSecond - 1, ySecond] == c)
-                { GridInfo[xSecond - 1, ySecond] = d; Draw(GridInfo, xSecond - 1, ySecond); }
+                { GridInfo[xSecond - 1, ySecond] = d; draw.Draw(ref g, GridInfo, xSecond - 1, ySecond); }
                 if (GridInfo[xSecond - 1, ySecond - 1] == c)
-                { GridInfo[xSecond - 1, ySecond - 1] = d; Draw(GridInfo, xSecond - 1, ySecond - 1); }
+                { GridInfo[xSecond - 1, ySecond - 1] = d; draw.Draw(ref g, GridInfo, xSecond - 1, ySecond - 1); }
                 if (GridInfo[xSecond - 1, ySecond + 1] == c)
-                { GridInfo[xSecond - 1, ySecond + 1] = d; Draw(GridInfo, xSecond - 1, ySecond + 1); }
+                { GridInfo[xSecond - 1, ySecond + 1] = d; draw.Draw(ref g, GridInfo, xSecond - 1, ySecond + 1); }
             }
 
         }//周围棋子同化
@@ -1505,24 +1472,29 @@ namespace Ataxx
 
             //  }
             CountPieces();
-            C = 1;
+            Color = 1;
         }//待更改//电脑下棋
+        private void button8_Click(object sender, EventArgs e)
+        {
+            GetHint(Color);
+        }//获得提示//未完成，和PVE相关
         private void button6_Click(object sender, EventArgs e)
         {
+            Graphics g = CreateGraphics();
             if (JudgeGameStart == true)
             {
                 if (StepSum > 0)
                 {
-                    if (C == 1)
-                    { C = 2; label10.Text = "●"; }
-                    else if (C == 2)
-                    { C = 1; label10.Text = "○"; }
+                    if (Color == 1)
+                    { Color = 2; label10.Text = "●"; }
+                    else if (Color == 2)
+                    { Color = 1; label10.Text = "○"; }
                     for (int i = 0; i < 7; i++)
                     {
                         for (int j = 0; j < 7; j++)
                         {
                             GridInfo[i, j] = history[StepSum - 1, i, j];//历史棋盘
-                            Draw(GridInfo, i, j);
+                            draw.Draw(ref g, GridInfo, i, j);
                         }
                     }
                     StepSum = StepSum - 1;
@@ -1551,12 +1523,12 @@ namespace Ataxx
         }//悔棋
         string printHelp()
         {
-            string str = "                                           同化棋(Ataxx),是一种双人对战棋类，\nDave Crummack与Craig Galley在1988年发明,并1990年出品于电视游戏而广为流行.\n";
-            str += ("                                          游戏采用7*7方格棋盘,\n                                  并以黑(●)白(○)棋子区分敌我.\n                           玩家可自由选择执黑(先手)或执白(后手)[本游戏中，默认玩家执白先行].\n");
+            string str = "                                           同化棋(Ataxx),是一种双人对战棋类，\n                               Dave Crummack与Craig Galley在1988年发明,\n                                        并1990年出品于电视游戏而广为流行.\n";
+            str += ("                                               游戏采用7*7方格棋盘,\n                                        并以黑(●)白(○)棋子区分敌我.\n         玩家可自由选择执黑(先手)或执白(后手)[本游戏中，默认玩家执白先行].\n");
             str += ("                            初始布置为双方各将两枚棋子放在最外的对角格.\n");
             str += ("  玩家必须轮流移动一枚己子到一个空棋位,该棋位可以是邻近八格(包括对角相邻的格)之一，或相隔一格的次邻八格之一.\n");
-            str += ("                              移动会使新棋位邻近八格的所有敌棋变成己方.\n                        *注意:如果棋子移到的是邻接八格,会有一颗新己棋出现在原先棋位.\n");
-            str += ("                          无法行棋需弃权.当两方都无法行棋时,游戏结束.以最多子者胜.\n");
+            str += ("                              移动会使新棋位邻近八格的所有敌棋变成己方.\n                *注意:如果棋子移到的是邻接八格,会有一颗新己棋出现在原先棋位.\n");
+            str += ("                     无法行棋需弃权.当两方都无法行棋时,游戏结束.以最多子者胜.\n");
             return str;
         }//HELP
         private void Form1_Load(object sender, EventArgs e)
@@ -1577,10 +1549,6 @@ namespace Ataxx
         {
             MessageBox.Show(printHelp(), "<Help>");
         }//显示Help
-        private void button8_Click(object sender, EventArgs e)
-        {
-            GetHint(C);
-        }//获得提示//未完成，和PVE相关
         private void button9_Click(object sender, EventArgs e)
         {
             WEB Link = new WEB();
@@ -1588,6 +1556,7 @@ namespace Ataxx
         }//网页超链接
         void LoadGame(string str)
         {
+            Graphics g = CreateGraphics();
             var reader1 = new StreamReader(str);
             string t = reader1.ReadLine();
             var buf = t.Split(',');
@@ -1596,17 +1565,17 @@ namespace Ataxx
                 {
                     GridInfo[i, j] = Convert.ToInt32(buf[7 * i + j]);
                     history[0, i, j] = GridInfo[i, j];
-                    Draw(GridInfo, i, j);
+                    draw.Draw(ref g, GridInfo, i, j);
                 }
             int sup = Convert.ToInt32(buf[49]);//第50个来判断轮到谁走
             if (sup == 1)
             {
-                C = 2;
+                Color = 2;
                 label10.Text = "●";
             }
             else
             {
-                C = 1;
+                Color = 1;
                 label10.Text = "○";
             }    
             reader1.Close();
@@ -1628,28 +1597,35 @@ namespace Ataxx
         }//对话框读存档数据
         private void button5_Click(object sender, EventArgs e)
         {
-            if (saveFileDialog1.ShowDialog() == DialogResult.OK && JudgeGameStart == true)
+            if (JudgeGameStart == true)
             {
-                string data = "";
-                var stream = new FileStream(saveFileDialog1.FileName, FileMode.Create);
-                var writer = new StreamWriter(stream);
-                for (int i = 0; i < 7; i++)
-                    for (int j = 0; j < 7; j++)
-                    { data += GridInfo[i, j].ToString() + ","; }
-                if (label10.Text == "●")
+                SaveFileDialog file = new SaveFileDialog();
+                file.InitialDirectory = Application.StartupPath;
+                file.RestoreDirectory = true;
+                file.Filter = "All Files(*.*)|*.*|Dat Files(*.dat)|*.dat|Text Files(*.txt)|*.txt";
+                file.FilterIndex = 3;
+                if (file.ShowDialog() == DialogResult.OK)
                 {
-                    data += 1;
+                    var stream = new FileStream(file.FileName, FileMode.Create);
+                    var writer = new StreamWriter(stream);
+
+                    string data = "";
+                    for (int i = 0; i < 7; i++)
+                        for (int j = 0; j < 7; j++)
+                            data += GridInfo[i, j].ToString() + ",";
+
+                    data += (label10.Text == "●") ? 1 : 2;
+
+                    writer.Write(data);
+                    writer.Close();
+                    stream.Close();
                 }
-                else { data += 2; }
-                writer.Write(data);
-                writer.Close();
-                stream.Close();
-                MessageBox.Show("SAVE SUCCESSFULLY!");
             }
             else
             {
                 MessageBox.Show("WRONG!");
             }
+            
         }//保存游戏存档，注意如果保存新存档，输入存档名最好加上‘.txt’（不加读文件也能读），也可以替换现有txt文件（存档）
         #endregion
     }
