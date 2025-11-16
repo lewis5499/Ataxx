@@ -214,7 +214,7 @@ namespace Ataxx
                     if (ConvertGridInfo[i, j] == color)
                     {
                         int cnt = 0;
-                        for (int dir = 0; dir < 24; dir++)//进行一步贪心 
+                        for (int dir = 0; dir < 24; dir++)//进行一步贪心
                         {
                             int x1 = i + delta[dir, 0];
                             int y1 = j + delta[dir, 1];
@@ -227,7 +227,7 @@ namespace Ataxx
                             beginPos[cnt, 1] = j;
                             possiblePos[cnt, 0] = x1;
                             possiblePos[cnt, 1] = y1;
-                            ProcStep(beginPos[dir, 0], beginPos[dir, 1], possiblePos[dir, 0], possiblePos[dir, 1], color);
+                            ProcStep(beginPos[cnt, 0], beginPos[cnt, 1], possiblePos[cnt, 0], possiblePos[cnt, 1], color);
                             firstStep[cnt] = Valuation2(color);
                             for (int ii = 0; ii < 7; ii++)
                                 for (int jj = 0; jj < 7; jj++)
@@ -299,36 +299,111 @@ namespace Ataxx
             MessageBox.Show("提示:您可以将(" + (startX + 1).ToString() + "," + (startY + 1).ToString() + ")位置的棋子移动到(" + (resultX + 1).ToString() + "," + (resultY + 1).ToString() + ")处\n");
             //Draw(GridInfo, resultX + 1, resultY + 1);
         }//pve
+        void RecordHistorySnapshot()
+        {
+            for (int i = 0; i < 7; i++)
+                for (int j = 0; j < 7; j++)
+                    history[StepSum, i, j] = GridInfo[i, j];
+        }
+        void AssimilateNeighbors(int centerX, int centerY, int playerColor, ref Graphics g)
+        {
+            int opponentColor = (playerColor == 1) ? 2 : 1;
+            for (int dir = 0; dir < 8; dir++)
+            {
+                int nx = centerX + delta[dir, 0];
+                int ny = centerY + delta[dir, 1];
+                if (!inMap(nx, ny))
+                    continue;
+                if (GridInfo[nx, ny] == opponentColor)
+                {
+                    GridInfo[nx, ny] = playerColor;
+                    draw.Draw(ref g, GridInfo, nx, ny);
+                }
+            }
+        }
+        void ApplyMoveOnBoard(int fromX, int fromY, int toX, int toY, int playerColor)
+        {
+            Graphics g = CreateGraphics();
+            GridInfo[toX, toY] = playerColor;
+            draw.Draw(ref g, GridInfo, toX, toY);
+            if (Math.Abs(toX - fromX) > 1 || Math.Abs(toY - fromY) > 1)
+            {
+                GridInfo[fromX, fromY] = 0;
+                draw.Draw(ref g, GridInfo, fromX, fromY);
+            }
+            AssimilateNeighbors(toX, toY, playerColor, ref g);
+        }
+        bool TryComputerMove()
+        {
+            int playerColor = Color;
+            if (playerColor != 2)
+                return false;
+            ConvertGridData();
+            currBotColor = (playerColor == 1) ? -1 : 1;
+            startX = startY = resultX = resultY = -1;
+            SearchBestChoice(currBotColor);
+            if (!inMap(startX, startY) || !inMap(resultX, resultY))
+                return false;
+            if (GridInfo[startX, startY] != playerColor)
+                return false;
+            if (GridInfo[resultX, resultY] != 0)
+                return false;
+            if (Math.Abs(startX - resultX) > 2 || Math.Abs(startY - resultY) > 2)
+                return false;
+            ApplyMoveOnBoard(startX, startY, resultX, resultY, playerColor);
+            StepSum++;
+            label9.Text = StepSum.ToString();
+            CountPieces();
+            WinJudgement();
+            RecordHistorySnapshot();
+            Color = (playerColor == 1) ? 2 : 1;
+            label10.Text = (Color == 1) ? "○" : "●";
+            textBox1.Text = "电脑已落子";
+            return true;
+        }
+        void TriggerComputerTurn()
+        {
+            while (Color == 2)
+            {
+                if (Exchange(Color) == 0)
+                {
+                    textBox1.Text = "电脑无棋可走，玩家继续";
+                    Color = 1;
+                    label10.Text = "○";
+                    if (Exchange(Color) == 0)
+                    {
+                        WinJudgement();
+                    }
+                    break;
+                }
+                if (!TryComputerMove())
+                {
+                    Color = 1;
+                    label10.Text = "○";
+                    break;
+                }
+                if (Exchange(Color) == 0)
+                {
+                    if (Color == 1)
+                    {
+                        if (Exchange(2) == 0)
+                        {
+                            WinJudgement();
+                            break;
+                        }
+                        textBox1.Text = "玩家无棋可走，电脑继续";
+                        Color = 2;
+                        label10.Text = "●";
+                        continue;
+                    }
+                }
+                break;
+            }
+        }
         public void Computer()
         {
-            SetZero(GridInfo);
-
-            //GetHint(C);//
-            //  for (int i = 0; i < 7; i++)
-            //      for (int j = 0; j < 7; j++)
-            //      {
-            //          if (GridInfo[i, j] == 2)
-            //          {
-
-            //          }
-            //      }
-            //  a++;
-            //  if (a < 6)
-            //  {
-            //      GridInfo[6, a] = 2;
-            //      Draw(GridInfo, 6, a);
-            //      C = 1;
-            //  }
-            //if (a >= 6)
-            //  {
-            //      GridInfo[0, 12 - a] = 2;
-            //      Draw(GridInfo, 0, 12 - a);
-            //      C = 1;
-
-            //  }
-            CountPieces();
-            Color = 1;
-        }//待更改//电脑下棋
+            TriggerComputerTurn();
+        }//电脑下棋
         #endregion
 
         #region PVP&主体
@@ -1355,20 +1430,17 @@ namespace Ataxx
                                 textBox1.Text = ("请对手落子");
                             }
                         }
-
-
-                        else if (R == false)//pve
+                    }
+                    else if (R == false)//pve
+                    {
+                        if (GridInfo[xFirst, yFirst] == 1)
                         {
-                            if (GridInfo[xFirst, yFirst] == 1)
-                            {
-                                DrawRec(ref g, 3);
-                            }
-                            else if (GridInfo[xFirst, yFirst] == 2)
-                            {
-                                textBox1.Text = ("请玩家落子");
-                            }
+                            DrawRec(ref g, 3);
                         }
-
+                        else if (GridInfo[xFirst, yFirst] == 2)
+                        {
+                            textBox1.Text = ("请玩家落子");
+                        }
                     }
                     else
                     {
@@ -1437,26 +1509,47 @@ namespace Ataxx
                             }
 
                         }
-                        //else if (R == false)
-                        //{
-                        //    if ((xSecond - xFirst <= 2 && xSecond - xFirst >= -2) && (ySecond - yFirst <= 2 && ySecond - yFirst >= -2))
-                        //    {
-                        //        if (GridInfo[xFirst, yFirst] == 1 && C == 1)
-                        //        {
-                        //            SetZero(GridInfo);
-                        //            PiecesSet(1); Process(2, 1); CountPieces(); C = 3;
-                        //        }
-                        //        if (C == 3)
-                        //        {
-                        //            //Computer();
-                        //        }
-                        //    if (start == true&&GridInfo!=initGridInfo)
-                        //    {
-                        //        WinJudgement();
-                        //    }
-
-                        //    }
-                        //}
+                        else if (R == false)
+                        {
+                            if ((xSecond - xFirst <= 2 && xSecond - xFirst >= -2) && (ySecond - yFirst <= 2 && ySecond - yFirst >= -2))
+                            {
+                                if (GridInfo[xFirst, yFirst] == 1 && Color == 1)
+                                {
+                                    SetZero(GridInfo);
+                                    PiecesSet(1);
+                                    Process(2, 1);
+                                    CountPieces();
+                                    Color = 2;
+                                    label10.Text = "●";
+                                    StepSum++;
+                                    label9.Text = StepSum.ToString();
+                                    WinJudgement();
+                                    RecordHistorySnapshot();
+                                    if (Exchange(Color) == 0)
+                                    {
+                                        textBox1.Text = "电脑无棋可走，玩家继续";
+                                        Color = 1;
+                                        label10.Text = "○";
+                                        if (Exchange(Color) == 0)
+                                        {
+                                            WinJudgement();
+                                        }
+                                    }
+                                    else
+                                    {
+                                        Computer();
+                                    }
+                                }
+                                else
+                                {
+                                    textBox1.Text = ("请拾取白棋");
+                                }
+                            }
+                            else
+                            {
+                                textBox1.Text = ("请在规定区域内落子");
+                            }
+                        }
                         else
                         {
                             textBox1.Text = ("请在空白处落子");
@@ -1632,7 +1725,6 @@ namespace Ataxx
             var temp = v2;
             v2 = v1;
             v1 = temp;
-            throw new NotImplementedException();
         }
     }
 }
