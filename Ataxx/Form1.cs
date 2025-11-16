@@ -18,11 +18,6 @@ namespace Ataxx
             public bool IsValid => FromX >= 0 && FromY >= 0 && ToX >= 0 && ToY >= 0;
             public static BotMove Invalid => new BotMove { FromX = -1, FromY = -1, ToX = -1, ToY = -1 };
         }
-        struct SearchResult
-        {
-            public int Score;
-            public BotMove Move;
-        }
 
         static readonly int INF = 1000000000;//const，暴力搜用到的上限次数
         const int ComputerMaxDepth = 5;
@@ -193,26 +188,26 @@ namespace Ataxx
             score += mobilityScore * 8;
             return score;
         }
-        SearchResult AlphaBeta(int[,] board, int depth, int alpha, int beta, int color, Stopwatch timer, int timeLimitMs, ref bool timeUp)
+        (int score, BotMove move) AlphaBeta(int[,] board, int depth, int alpha, int beta, int color, Stopwatch timer, int timeLimitMs, ref bool timeUp)
         {
             if (timeUp || timer.ElapsedMilliseconds >= timeLimitMs)
             {
                 timeUp = true;
-                return new SearchResult { Score = EvaluateBoard(board, color), Move = BotMove.Invalid };
+                return (EvaluateBoard(board, color), BotMove.Invalid);
             }
             if (depth == 0)
             {
-                return new SearchResult { Score = EvaluateBoard(board, color), Move = BotMove.Invalid };
+                return (EvaluateBoard(board, color), BotMove.Invalid);
             }
             List<BotMove> moves = GenerateMoves(board, color);
             if (moves.Count == 0)
             {
                 if (CountMoves(board, -color) == 0)
                 {
-                    return new SearchResult { Score = EvaluateBoard(board, color), Move = BotMove.Invalid };
+                    return (EvaluateBoard(board, color), BotMove.Invalid);
                 }
-                SearchResult passResult = AlphaBeta(board, depth - 1, -beta, -alpha, -color, timer, timeLimitMs, ref timeUp);
-                return new SearchResult { Score = -passResult.Score, Move = BotMove.Invalid };
+                var passResult = AlphaBeta(board, depth - 1, -beta, -alpha, -color, timer, timeLimitMs, ref timeUp);
+                return (-passResult.score, BotMove.Invalid);
             }
             int bestScore = -INF;
             BotMove bestMove = BotMove.Invalid;
@@ -220,11 +215,11 @@ namespace Ataxx
             {
                 int[,] nextBoard = CloneBoard(board);
                 ApplyVirtualMove(nextBoard, move, color);
-                SearchResult childResult = AlphaBeta(nextBoard, depth - 1, -beta, -alpha, -color, timer, timeLimitMs, ref timeUp);
-                int score = -childResult.Score;
+                var childResult = AlphaBeta(nextBoard, depth - 1, -beta, -alpha, -color, timer, timeLimitMs, ref timeUp);
+                int score = -childResult.score;
                 if (timeUp)
                 {
-                    return new SearchResult { Score = score, Move = bestMove };
+                    return (score, bestMove);
                 }
                 if (score > bestScore)
                 {
@@ -240,7 +235,7 @@ namespace Ataxx
                     break;
                 }
             }
-            return new SearchResult { Score = bestScore, Move = bestMove };
+            return (bestScore, bestMove);
         }
         BotMove FindBestMove(int[,] board, int playerColor, int maxDepth, int timeLimitMs)
         {
@@ -251,10 +246,10 @@ namespace Ataxx
             for (int depth = 1; depth <= maxDepth; depth++)
             {
                 bool timeUp = false;
-                SearchResult result = AlphaBeta(board, depth, -INF, INF, playerColor, timer, timeLimitMs, ref timeUp);
-                if (!timeUp && result.Move.IsValid)
+                var result = AlphaBeta(board, depth, -INF, INF, playerColor, timer, timeLimitMs, ref timeUp);
+                if (!timeUp && result.move.IsValid)
                 {
-                    bestMove = result.Move;
+                    bestMove = result.move;
                 }
                 if (timeUp || timer.ElapsedMilliseconds >= timeLimitMs)
                 {
@@ -311,7 +306,52 @@ namespace Ataxx
                 {
                     using (Brush destBrush = new SolidBrush(Color.FromArgb(80, Color.MediumSeaGreen)))
                     {
-                        g.FillRectangle(destBrush, new Rectangle(51 + move.ToX * squ, 51 + move.ToY * squ, squ - 2, squ - 2));
+                        int cnt = 0;
+                        for (int dir = 0; dir < 24; dir++)//进行一步贪心
+                        {
+                            int x1 = i + delta[dir, 0];
+                            int y1 = j + delta[dir, 1];
+                            if (!inMap(x1, y1))
+                                continue;
+                            if (ConvertGridInfo[x1, y1] != 0)
+                                continue;
+                            cnt++;
+                            beginPos[cnt, 0] = i;
+                            beginPos[cnt, 1] = j;
+                            possiblePos[cnt, 0] = x1;
+                            possiblePos[cnt, 1] = y1;
+                            ProcStep(beginPos[cnt, 0], beginPos[cnt, 1], possiblePos[cnt, 0], possiblePos[cnt, 1], color);
+                            firstStep[cnt] = Valuation2(color);
+                            for (int ii = 0; ii < 7; ii++)
+                                for (int jj = 0; jj < 7; jj++)
+                                    ConvertGridInfo[ii, jj] = tempgridInfo[0, ii, jj];//////tempgridInfo没有变化
+                        }
+                        for (int k = 1; k <= cnt; k++)
+                            for (int l = 1; l <= cnt - k; l++)
+                                if (firstStep[l] < firstStep[l + 1])
+                                {
+                                    Function function = new Function();
+                                    function.swap(ref firstStep[l], ref firstStep[l + 1]);
+                                    function.swap(ref possiblePos[l, 0], ref possiblePos[l + 1, 0]);
+                                    function.swap(ref possiblePos[l, 1], ref possiblePos[l + 1, 1]);
+                                    function.swap(ref beginPos[l, 0], ref beginPos[l + 1, 0]);
+                                    function.swap(ref beginPos[l, 1], ref beginPos[l + 1, 1]);
+                                }
+                        for (int d = 1; d <= cnt; d++)
+                        {
+                            ProcStep(beginPos[d, 0], beginPos[d, 1], possiblePos[d, 0], possiblePos[d, 1], color);
+                            alpha[1] = -INF;
+                            beta[1] = INF;
+                            Max_Min_Search(1, -1, color);////？
+                            for (int ii = 0; ii < 7; ii++)
+                                for (int jj = 0; jj < 7; jj++)
+                                    ConvertGridInfo[ii, jj] = tempgridInfo[0, ii, jj];
+                            if (alpha[0] > minn)
+                            {
+                                resultX = possiblePos[d, 0]; resultY = possiblePos[d, 1]; startX = i; startY = j;
+                                minn = alpha[0];
+                            }
+                        }
                     }
                 }
             }
@@ -388,6 +428,88 @@ namespace Ataxx
             if (!bestMove.IsValid)
                 return false;
             ApplyMoveOnBoard(bestMove.FromX, bestMove.FromY, bestMove.ToX, bestMove.ToY, playerColor);
+            StepSum++;
+            label9.Text = StepSum.ToString();
+            CountPieces();
+            WinJudgement();
+            RecordHistorySnapshot();
+            Color = (playerColor == 1) ? 2 : 1;
+            label10.Text = (Color == 1) ? "○" : "●";
+            textBox1.Text = "电脑已落子";
+            return true;
+        }
+        void TriggerComputerTurn()
+        {
+            while (Color == 2)
+            {
+                if (Exchange(Color) == 0)
+                {
+                    textBox1.Text = "电脑无棋可走，玩家继续";
+                    Color = 1;
+                    label10.Text = "○";
+                    if (Exchange(Color) == 0)
+                    {
+                        WinJudgement();
+                    }
+                    break;
+                }
+            resultX = possiblePos[0, 0]; resultY = possiblePos[0, 1]; startX = beginPos[0, 0]; startY = beginPos[0, 1];
+            SearchBestChoice(cc);//搜索，把结果存在start&result中 //仍热用1/-1
+            MessageBox.Show("提示:您可以将(" + (startX + 1).ToString() + "," + (startY + 1).ToString() + ")位置的棋子移动到(" + (resultX + 1).ToString() + "," + (resultY + 1).ToString() + ")处\n");
+            //Draw(GridInfo, resultX + 1, resultY + 1);
+        }//pve
+        void RecordHistorySnapshot()
+        {
+            for (int i = 0; i < 7; i++)
+                for (int j = 0; j < 7; j++)
+                    history[StepSum, i, j] = GridInfo[i, j];
+        }
+        void AssimilateNeighbors(int centerX, int centerY, int playerColor, ref Graphics g)
+        {
+            int opponentColor = (playerColor == 1) ? 2 : 1;
+            for (int dir = 0; dir < 8; dir++)
+            {
+                int nx = centerX + delta[dir, 0];
+                int ny = centerY + delta[dir, 1];
+                if (!inMap(nx, ny))
+                    continue;
+                if (GridInfo[nx, ny] == opponentColor)
+                {
+                    GridInfo[nx, ny] = playerColor;
+                    draw.Draw(ref g, GridInfo, nx, ny);
+                }
+            }
+        }
+        void ApplyMoveOnBoard(int fromX, int fromY, int toX, int toY, int playerColor)
+        {
+            Graphics g = CreateGraphics();
+            GridInfo[toX, toY] = playerColor;
+            draw.Draw(ref g, GridInfo, toX, toY);
+            if (Math.Abs(toX - fromX) > 1 || Math.Abs(toY - fromY) > 1)
+            {
+                GridInfo[fromX, fromY] = 0;
+                draw.Draw(ref g, GridInfo, fromX, fromY);
+            }
+            AssimilateNeighbors(toX, toY, playerColor, ref g);
+        }
+        bool TryComputerMove()
+        {
+            int playerColor = Color;
+            if (playerColor != 2)
+                return false;
+            ConvertGridData();
+            currBotColor = (playerColor == 1) ? -1 : 1;
+            startX = startY = resultX = resultY = -1;
+            SearchBestChoice(currBotColor);
+            if (!inMap(startX, startY) || !inMap(resultX, resultY))
+                return false;
+            if (GridInfo[startX, startY] != playerColor)
+                return false;
+            if (GridInfo[resultX, resultY] != 0)
+                return false;
+            if (Math.Abs(startX - resultX) > 2 || Math.Abs(startY - resultY) > 2)
+                return false;
+            ApplyMoveOnBoard(startX, startY, resultX, resultY, playerColor);
             StepSum++;
             label9.Text = StepSum.ToString();
             CountPieces();
@@ -1756,5 +1878,14 @@ namespace Ataxx
             
         }//保存游戏存档，注意如果保存新存档，输入存档名最好加上‘.txt’（不加读文件也能读），也可以替换现有txt文件（存档）
         #endregion
+    }
+    internal class Function
+    {
+        internal void swap(ref int v1, ref int v2)
+        {
+            var temp = v2;
+            v2 = v1;
+            v1 = temp;
+        }
     }
 }
