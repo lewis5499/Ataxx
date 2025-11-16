@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
@@ -7,17 +9,25 @@ namespace Ataxx
     public partial class Form1 : Form
     {
         #region PVE
-        int [,]ConvertGridInfo=new int [7, 7];//应完成初始化工作
-        int cc;//现在行棋玩家颜色，-1为白，1为黑
-        int currBotColor = -1;//属于-1/1表示法，默认玩家执白棋
+        struct BotMove
+        {
+            public int FromX;
+            public int FromY;
+            public int ToX;
+            public int ToY;
+            public bool IsValid => FromX >= 0 && FromY >= 0 && ToX >= 0 && ToY >= 0;
+            public static BotMove Invalid => new BotMove { FromX = -1, FromY = -1, ToX = -1, ToY = -1 };
+        }
+
         static readonly int INF = 1000000000;//const，暴力搜用到的上限次数
-        int[,,] tempgridInfo = new int[100, 7, 7];//存储的临时棋盘
-        int[,] beginPos = new int[1000, 2];
-        int[,] possiblePos = new int[1000, 2];
-        int[] firstStep = new int[1000];
-        int[] alpha = new int[100];
-        int[] beta = new int[100];
-        int startX, startY, resultX, resultY;
+        const int ComputerMaxDepth = 5;
+        const int HintMaxDepth = 4;
+        const int ComputerSearchTimeMs = 2000;
+        const int HintSearchTimeMs = 800;
+
+        int currBotColor = -1;//属于-1/1表示法，默认玩家执白棋
+        Point? hintFromCell;
+        Point? hintToCell;
         static int[,] delta = new int[24, 2]{ { 1,1 },{ 0,1 },{ -1,1 },{ -1,0 },
         { -1,-1 },{ 0,-1 },{ 1,-1 },{ 1,0 },
         { 2,0 },{ 2,1 },{ 2,2 },{ 1,2 },
@@ -30,188 +40,271 @@ namespace Ataxx
                 return false;
             return true;
         }//pve
-        void ConvertGridPoint(int x,int y)
+        int[,] BuildSearchBoard()
         {
-            if (GridInfo[x, y] == 1) ConvertGridInfo[x, y] = -1;
-            else if (GridInfo[x, y] == 2) ConvertGridInfo[x, y] = 1;
-            else ConvertGridInfo[x, y] = 0;
-        }//处理每个点的数据
-        void ConvertGridData()
-        {
+            int[,] board = new int[7, 7];
             for (int i = 0; i < 7; i++)
-                for (int j = 0; j < 7; j++)
-                    ConvertGridPoint(i, j);
-        }//处理整个1/2与-1/1表示法棋盘
-        bool ProcStep(int x0, int y0, int x1, int y1, int color)//此处color是-1/1表示法
-        {
-            if (color == 0)
-                return false;
-            if (x1 == -1) // 无路可走，跳过此回合
-                return true;
-            if (!inMap(x0, y0) || !inMap(x1, y1)) // 超出边界
-                return false;
-            if (ConvertGridInfo[x0, y0] != color)
-                return false;
-            int dx, dy, x, y, currCount = 0, dir;
-            int[,] effectivePoints = new int[8, 2];
-            dx = Math.Abs((x0 - x1)); dy = Math.Abs((y0 - y1));
-            if ((dx == 0 && dy == 0) || dx > 2 || dy > 2) // 保证不会移动到原来位置，而且移动始终在5×5区域内
-                return false;
-            if (ConvertGridInfo[x1, y1] != 0) // 保证移动到的位置为空
-                return false;
-            if (dx == 2 || dy == 2) // 如果走的是5×5的外围，则不是复制粘贴
-                ConvertGridInfo[x0, y0] = 0;
-            else
             {
-                if (color == 1)//-1/1
-                    score2++;
-                else
-                    score1++;
+                for (int j = 0; j < 7; j++)
+                {
+                    if (GridInfo[i, j] == 1)
+                    {
+                        board[i, j] = -1;
+                    }
+                    else if (GridInfo[i, j] == 2)
+                    {
+                        board[i, j] = 1;
+                    }
+                    else
+                    {
+                        board[i, j] = 0;
+                    }
+                }
             }
-            ConvertGridInfo[x1, y1] = color;
-            for (dir = 0; dir < 8; dir++)
-            { // 影响邻近8个位置
-                x = x1 + delta[dir, 0];
-                y = y1 + delta[dir, 1];
-                if (!inMap(x, y))
+            return board;
+        }
+        int[,] CloneBoard(int[,] board)
+        {
+            int[,] copy = new int[7, 7];
+            Array.Copy(board, copy, board.Length);
+            return copy;
+        }
+        void ApplyVirtualMove(int[,] board, BotMove move, int color)
+        {
+            board[move.ToX, move.ToY] = color;
+            if (Math.Abs(move.ToX - move.FromX) > 1 || Math.Abs(move.ToY - move.FromY) > 1)
+            {
+                board[move.FromX, move.FromY] = 0;
+            }
+            for (int dir = 0; dir < 8; dir++)
+            {
+                int nx = move.ToX + delta[dir, 0];
+                int ny = move.ToY + delta[dir, 1];
+                if (!inMap(nx, ny))
                     continue;
-                if (ConvertGridInfo[x, y] == -color)
+                if (board[nx, ny] == -color)
                 {
-                    effectivePoints[currCount, 0] = x;
-                    effectivePoints[currCount, 1] = y;
-                    currCount++;
-                    ConvertGridInfo[x, y] = color;
+                    board[nx, ny] = color;
                 }
             }
-            if (currCount != 0)
-            {
-                if (color == 1)
-                {
-                    score2 += currCount;
-                    score1 -= currCount;
-                }
-                else
-                {
-                    score1 += currCount;
-                    score2 -= currCount;
-                }
-            }
-            return true;
-        }//pve
-        int Valuation(int color)  //估值函数//-1/1表示法
+        }
+        int CountMoves(int[,] board, int color)
         {
-            CountPieces();
-            if (color == -1) return score1 - score2;//我方棋子数-对方棋子数
-            else return score2 - score1;
-        }//pve
-        int Valuation2(int color)  //贪心函数 //-1/1表示法
-        {
-            int ans = 0;
+            int count = 0;
             for (int i = 0; i < 7; i++)
             {
                 for (int j = 0; j < 7; j++)
-                    if (ConvertGridInfo[i, j] == 0)
+                {
+                    if (board[i, j] != color)
+                        continue;
+                    for (int dir = 0; dir < 24; dir++)
                     {
-                        int tempcnt1 = 0, tempcnt2 = 0;
-                        for (int dir = 0; dir < 7; dir++)
-                        {
-                            int x1 = i + delta[dir, 0];
-                            int y1 = j + delta[dir, 1];
-                            if (!inMap(x1, y1))
-                                continue;
-                            if (ConvertGridInfo[x1, y1] == color) tempcnt1++;
-                            if (ConvertGridInfo[x1, y1] == -color) tempcnt2++;
-                        }
-                        if (tempcnt1 >= 6 && tempcnt2 > 0) ans--;
+                        int nx = i + delta[dir, 0];
+                        int ny = j + delta[dir, 1];
+                        if (!inMap(nx, ny))
+                            continue;
+                        if (board[nx, ny] == 0)
+                            count++;
                     }
+                }
             }
-            CountPieces();
-            if (color == -1) return score1 - score2 + ans * 20;//我方棋子数-对方棋子数//-1/1表示法
-            else return score2 - score1 + ans * 20;
-        }//pve
-        void Max_Min_Search(int Depth, int type, int color)
+            return count;
+        }
+        int ScoreMoveForOrdering(int[,] board, BotMove move, int color)
         {
-            if (Depth > 3)
+            int score = 0;
+            for (int dir = 0; dir < 8; dir++)
             {
-                if (type == 1) beta[Depth - 1] = Math.Min(beta[Depth - 1], Valuation(color));
-                if (type == -1) alpha[Depth - 1] = Math.Max(alpha[Depth - 1], Valuation(color));
+                int nx = move.ToX + delta[dir, 0];
+                int ny = move.ToY + delta[dir, 1];
+                if (!inMap(nx, ny))
+                    continue;
+                if (board[nx, ny] == -color)
+                    score += 3;
+            }
+            int distance = Math.Abs(move.ToX - move.FromX) + Math.Abs(move.ToY - move.FromY);
+            int centerBias = 6 - (Math.Abs(move.ToX - 3) + Math.Abs(move.ToY - 3));
+            score += centerBias;
+            score -= distance;
+            return score;
+        }
+        List<BotMove> GenerateMoves(int[,] board, int color)
+        {
+            List<BotMove> moves = new List<BotMove>();
+            for (int i = 0; i < 7; i++)
+            {
+                for (int j = 0; j < 7; j++)
+                {
+                    if (board[i, j] != color)
+                        continue;
+                    for (int dir = 0; dir < 24; dir++)
+                    {
+                        int nx = i + delta[dir, 0];
+                        int ny = j + delta[dir, 1];
+                        if (!inMap(nx, ny) || board[nx, ny] != 0)
+                            continue;
+                        moves.Add(new BotMove { FromX = i, FromY = j, ToX = nx, ToY = ny });
+                    }
+                }
+            }
+            moves.Sort((a, b) => ScoreMoveForOrdering(board, b, color).CompareTo(ScoreMoveForOrdering(board, a, color)));
+            return moves;
+        }
+        int EvaluateBoard(int[,] board, int perspective)
+        {
+            int pieceScore = 0;
+            int centerScore = 0;
+            int frontierScore = 0;
+            for (int i = 0; i < 7; i++)
+            {
+                for (int j = 0; j < 7; j++)
+                {
+                    int cell = board[i, j];
+                    if (cell == 0)
+                        continue;
+                    pieceScore += cell;
+                    int centerDist = Math.Abs(3 - i) + Math.Abs(3 - j);
+                    centerScore += (6 - centerDist) * cell;
+                    bool frontier = false;
+                    for (int dir = 0; dir < 8; dir++)
+                    {
+                        int nx = i + delta[dir, 0];
+                        int ny = j + delta[dir, 1];
+                        if (inMap(nx, ny) && board[nx, ny] == 0)
+                        {
+                            frontier = true;
+                            break;
+                        }
+                    }
+                    if (frontier)
+                        frontierScore -= cell;
+                    else
+                        frontierScore += cell;
+                }
+            }
+            int mobilityScore = CountMoves(board, perspective) - CountMoves(board, -perspective);
+            int score = pieceScore * 100 + centerScore * 5 + frontierScore * 3;
+            score *= perspective;
+            score += mobilityScore * 8;
+            return score;
+        }
+        (int score, BotMove move) AlphaBeta(int[,] board, int depth, int alpha, int beta, int color, Stopwatch timer, int timeLimitMs, ref bool timeUp)
+        {
+            if (timeUp || timer.ElapsedMilliseconds >= timeLimitMs)
+            {
+                timeUp = true;
+                return (EvaluateBoard(board, color), BotMove.Invalid);
+            }
+            if (depth == 0)
+            {
+                return (EvaluateBoard(board, color), BotMove.Invalid);
+            }
+            List<BotMove> moves = GenerateMoves(board, color);
+            if (moves.Count == 0)
+            {
+                if (CountMoves(board, -color) == 0)
+                {
+                    return (EvaluateBoard(board, color), BotMove.Invalid);
+                }
+                var passResult = AlphaBeta(board, depth - 1, -beta, -alpha, -color, timer, timeLimitMs, ref timeUp);
+                return (-passResult.score, BotMove.Invalid);
+            }
+            int bestScore = -INF;
+            BotMove bestMove = BotMove.Invalid;
+            foreach (var move in moves)
+            {
+                int[,] nextBoard = CloneBoard(board);
+                ApplyVirtualMove(nextBoard, move, color);
+                var childResult = AlphaBeta(nextBoard, depth - 1, -beta, -alpha, -color, timer, timeLimitMs, ref timeUp);
+                int score = -childResult.score;
+                if (timeUp)
+                {
+                    return (score, bestMove);
+                }
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestMove = move;
+                }
+                if (bestScore > alpha)
+                {
+                    alpha = bestScore;
+                }
+                if (alpha >= beta)
+                {
+                    break;
+                }
+            }
+            return (bestScore, bestMove);
+        }
+        BotMove FindBestMove(int[,] board, int playerColor, int maxDepth, int timeLimitMs)
+        {
+            if (CountMoves(board, playerColor) == 0)
+                return BotMove.Invalid;
+            Stopwatch timer = Stopwatch.StartNew();
+            BotMove bestMove = BotMove.Invalid;
+            for (int depth = 1; depth <= maxDepth; depth++)
+            {
+                bool timeUp = false;
+                var result = AlphaBeta(board, depth, -INF, INF, playerColor, timer, timeLimitMs, ref timeUp);
+                if (!timeUp && result.move.IsValid)
+                {
+                    bestMove = result.move;
+                }
+                if (timeUp || timer.ElapsedMilliseconds >= timeLimitMs)
+                {
+                    break;
+                }
+            }
+            if (!bestMove.IsValid)
+            {
+                List<BotMove> fallbackMoves = GenerateMoves(board, playerColor);
+                if (fallbackMoves.Count > 0)
+                    bestMove = fallbackMoves[0];
+            }
+            return bestMove;
+        }
+        BotMove ComputeBestMoveForCurrentBoard(int playerColor, int maxDepth, int timeLimitMs)
+        {
+            int[,] board = BuildSearchBoard();
+            return FindBestMove(board, playerColor, maxDepth, timeLimitMs);
+        }
+        void ClearHintOverlay()
+        {
+            if (!hintFromCell.HasValue && !hintToCell.HasValue)
                 return;
-            }
-            for (int i = 0; i < 7; i++)            //用temp暂存当前棋盘，用当前棋盘继续搜索，搜完后再还原当前棋盘 
-                for (int j = 0; j < 7; j++)
-                    tempgridInfo[Depth, i, j] = ConvertGridInfo[i, j];
-            for (int i = 0; i < 7; i++)
+            Graphics g = CreateGraphics();
+            if (hintFromCell.HasValue)
             {
-                for (int j = 0; j < 7; j++)
-                    if (ConvertGridInfo[i, j] == type * currBotColor)//
-                    {
-                        for (int dir = 0; dir < 24; dir++)
-                        {
-                            int x1 = i + delta[dir, 0];
-                            int y1 = j + delta[dir, 1];
-                            if (!inMap(x1, y1))
-                                continue;
-                            if (ConvertGridInfo[x1, y1] != 0)
-                                continue;
-                            ProcStep(i, j, x1, y1, type * currBotColor);
-                            alpha[Depth + 1] = -INF;
-                            beta[Depth + 1] = INF;
-                            Max_Min_Search(Depth + 1, -type, color);
-                            for (int ii = 0; ii < 7; ii++)
-                                for (int jj = 0; jj < 7; jj++)
-                                    ConvertGridInfo[ii, jj] = tempgridInfo[Depth, ii, jj];
-                            if (type == 1 && beta[Depth - 1] <= alpha[Depth]) return;
-                            if (type == -1 && alpha[Depth - 1] >= beta[Depth]) return;
-                        }
-                    }
+                draw.Draw(ref g, GridInfo, hintFromCell.Value.X, hintFromCell.Value.Y);
             }
-            if (type == -1) alpha[Depth - 1] = Math.Max(alpha[Depth - 1], beta[Depth]);
-            if (type == 1) beta[Depth - 1] = Math.Min(beta[Depth - 1], alpha[Depth]);
-        }//pve//-1/1表示法
-        void SearchBestChoice(int color)
+            if (hintToCell.HasValue)
+            {
+                draw.Draw(ref g, GridInfo, hintToCell.Value.X, hintToCell.Value.Y);
+            }
+            g.Dispose();
+            hintFromCell = hintToCell = null;
+        }
+        void ShowHintOnBoard(BotMove move)
         {
-            for (int i = 0; i < 7; i++)            //用temp暂存当前棋盘，用当前棋盘继续搜索，搜完后再还原当前棋盘 
-                for (int j = 0; j < 7; j++)
-                    tempgridInfo[0, i, j] = ConvertGridInfo[i, j];
-            //搜索，把结果存在start&result中 
-            for (int i = 0; i < 7; i++)//加一步贪心 
+            ClearHintOverlay();
+            if (!move.IsValid)
+                return;
+            using (Graphics g = CreateGraphics())
             {
-                for (int j = 0; j < 7; j++)
+                Rectangle startRect = new Rectangle(51 + move.FromX * squ, 51 + move.FromY * squ, squ - 2, squ - 2);
+                Rectangle endRect = new Rectangle(51 + move.ToX * squ, 51 + move.ToY * squ, squ - 2, squ - 2);
+                using (Pen startPen = new Pen(Color.DarkOrange, 3))
                 {
-                    if (ConvertGridInfo[i, j] == 0)
-                    {
-                        int cnt1 = 0, cnt2 = 0, cnt3 = 0;
-                        for (int d = 0; d < 8; d++)
-                        {
-                            if (!inMap(i + delta[d, 0], j + delta[d, 1])) continue;
-                            cnt3++;
-                            if (ConvertGridInfo[i + delta[d, 0], j + delta[d, 1]] == color) cnt1++;
-                            if (ConvertGridInfo[i + delta[d, 0], j + delta[d, 1]] == -color) cnt2++;
-                        }
-                        if (cnt1 + cnt2 == cnt3 && cnt1 > 0 && cnt2 >= 5)
-                        {
-                            for (int d = 0; d < 8; d++)
-                            {
-                                if (ConvertGridInfo[i + delta[d, 0], j + delta[d, 1]] == currBotColor && inMap(i + delta[d, 0], j + delta[d, 1]))
-                                {
-                                    resultX = i;
-                                    resultY = j;
-                                    startX = i + delta[d, 0];
-                                    startY = j + delta[d, 1];
-                                    return;
-                                }
-                            }
-                        }
-                    }
+                    g.DrawRectangle(startPen, startRect);
                 }
-            }
-            int minn = -INF;
-            alpha[0] = -INF;
-            beta[0] = INF; 
-            for (int i = 0; i < 7; i++)
-            {
-                for (int j = 0; j < 7; j++)
-                    if (ConvertGridInfo[i, j] == color)
+                using (Pen endPen = new Pen(Color.MediumSeaGreen, 3))
+                {
+                    g.DrawRectangle(endPen, endRect);
+                }
+                if (GridInfo[move.ToX, move.ToY] == 0)
+                {
+                    using (Brush destBrush = new SolidBrush(Color.FromArgb(80, Color.MediumSeaGreen)))
                     {
                         int cnt = 0;
                         for (int dir = 0; dir < 24; dir++)//进行一步贪心
@@ -260,39 +353,105 @@ namespace Ataxx
                             }
                         }
                     }
+                }
             }
+            hintFromCell = new Point(move.FromX, move.FromY);
+            hintToCell = new Point(move.ToX, move.ToY);
+        }
+        void GetHint(int C)  //为当前行棋的玩家（颜色为cc）提示一个电脑算出的较优解
+        {
+            if (Reset)
+            {
+                MessageBox.Show("请先开始游戏！", "WARNING!");
+                return;
+            }
+            if (Exchange(C) == 0)
+            {
+                textBox1.Text = "当前无可走的棋步";
+                ClearHintOverlay();
+                return;
+            }
+            int searchColor = (C == 1) ? -1 : 1;
+            BotMove hintMove = ComputeBestMoveForCurrentBoard(searchColor, HintMaxDepth, HintSearchTimeMs);
+            if (!hintMove.IsValid)
+            {
+                textBox1.Text = "提示：暂未找到更优走法";
+                ClearHintOverlay();
+                return;
+            }
+            ShowHintOnBoard(hintMove);
+            textBox1.Text = "提示: 将(" + (hintMove.FromX + 1).ToString() + "," + (hintMove.FromY + 1).ToString() + ")移动到(" +
+                (hintMove.ToX + 1).ToString() + "," + (hintMove.ToY + 1).ToString() + ")";
+        }//pve
+        void RecordHistorySnapshot()
+        {
             for (int i = 0; i < 7; i++)
                 for (int j = 0; j < 7; j++)
-                    ConvertGridInfo[i, j] = tempgridInfo[0, i, j];///改变GridInfo[i, j]
-            return;
-        }//pve//-1/1
-        void GetHint(int C)  //为当前行棋的玩家（颜色为cc）提示一个电脑算出的较优解 
+                    history[StepSum, i, j] = GridInfo[i, j];
+        }
+        void AssimilateNeighbors(int centerX, int centerY, int playerColor, ref Graphics g)
         {
-            if (C == 1)
+            int opponentColor = (playerColor == 1) ? 2 : 1;
+            for (int dir = 0; dir < 8; dir++)
             {
-                cc = -1;
-            }
-            else if (C == 2)
-            {
-                cc = 1;
-            }
-            int x0, y0, x1, y1;
-            int posCount = 0, dir;
-            for (y0 = 0; y0 < 7; y0++)
-                for (x0 = 0; x0 < 7; x0++)
+                int nx = centerX + delta[dir, 0];
+                int ny = centerY + delta[dir, 1];
+                if (!inMap(nx, ny))
+                    continue;
+                if (GridInfo[nx, ny] == opponentColor)
                 {
-                    if (ConvertGridInfo[x0, y0] != cc)
-                        continue;
-                    for (dir = 0; dir < 24; dir++)
+                    GridInfo[nx, ny] = playerColor;
+                    draw.Draw(ref g, GridInfo, nx, ny);
+                }
+            }
+        }
+        void ApplyMoveOnBoard(int fromX, int fromY, int toX, int toY, int playerColor)
+        {
+            ClearHintOverlay();
+            Graphics g = CreateGraphics();
+            GridInfo[toX, toY] = playerColor;
+            draw.Draw(ref g, GridInfo, toX, toY);
+            if (Math.Abs(toX - fromX) > 1 || Math.Abs(toY - fromY) > 1)
+            {
+                GridInfo[fromX, fromY] = 0;
+                draw.Draw(ref g, GridInfo, fromX, fromY);
+            }
+            AssimilateNeighbors(toX, toY, playerColor, ref g);
+        }
+        bool TryComputerMove()
+        {
+            int playerColor = Color;
+            if (playerColor != 2)
+                return false;
+            currBotColor = (playerColor == 1) ? -1 : 1;
+            BotMove bestMove = ComputeBestMoveForCurrentBoard(currBotColor, ComputerMaxDepth, ComputerSearchTimeMs);
+            if (!bestMove.IsValid)
+                return false;
+            ApplyMoveOnBoard(bestMove.FromX, bestMove.FromY, bestMove.ToX, bestMove.ToY, playerColor);
+            StepSum++;
+            label9.Text = StepSum.ToString();
+            CountPieces();
+            WinJudgement();
+            RecordHistorySnapshot();
+            Color = (playerColor == 1) ? 2 : 1;
+            label10.Text = (Color == 1) ? "○" : "●";
+            textBox1.Text = "电脑已落子";
+            return true;
+        }
+        void TriggerComputerTurn()
+        {
+            while (Color == 2)
+            {
+                if (Exchange(Color) == 0)
+                {
+                    textBox1.Text = "电脑无棋可走，玩家继续";
+                    Color = 1;
+                    label10.Text = "○";
+                    if (Exchange(Color) == 0)
                     {
-                        x1 = x0 + delta[dir, 0];
-                        y1 = y0 + delta[dir, 1];
-                        if (!inMap(x1, y1))
-                            continue;
-                        if (ConvertGridInfo[x1, y1] != 0)
-                            continue;
-                        posCount++;
+                        WinJudgement();
                     }
+                    break;
                 }
             resultX = possiblePos[0, 0]; resultY = possiblePos[0, 1]; startX = beginPos[0, 0]; startY = beginPos[0, 1];
             SearchBestChoice(cc);//搜索，把结果存在start&result中 //仍热用1/-1
@@ -451,8 +610,9 @@ namespace Ataxx
         }//加载initgridinfo初始化棋盘
         public void init()
         {
+            ClearHintOverlay();
             Graphics g = CreateGraphics();
-            
+
             draw.DrawBoard(ref g);
             Color = 1;
             for (int i = 0; i < 7; i++)
@@ -472,7 +632,6 @@ namespace Ataxx
             draw.Draw(ref g, GridInfo, 6, 0);
             draw.Draw(ref g, GridInfo, 6, 6);
             CountPieces(); label9.Text = StepSum.ToString();//算棋子数，并显示
-            ConvertGridData();
         }//初始化当前棋盘，算棋子数，并显示
         public void DrawRec(ref Graphics g, int k)
         {
@@ -852,6 +1011,7 @@ namespace Ataxx
         }//计算分数的方法，并显示
         public void PiecesSet(int a)
         {
+            ClearHintOverlay();
             //Point p2 = new Point();
             p2 = Control.MousePosition;
             p = this.PointToClient(p2);
@@ -1620,10 +1780,11 @@ namespace Ataxx
         private void button8_Click(object sender, EventArgs e)
         {
             GetHint(Color);
-        }//获得提示//未完成，和PVE相关
+        }//获得提示
         private void button6_Click(object sender, EventArgs e)
         {
             Graphics g = CreateGraphics();
+            ClearHintOverlay();
             if (JudgeGameStart == true)
             {
                 if (StepSum > 0)
