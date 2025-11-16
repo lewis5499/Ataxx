@@ -1737,22 +1737,22 @@ namespace Ataxx
             textBox1.Clear();
             textBox1.Text = "白子先行";
             StepSum = 0;
-            history[0, 0, 0] = 1;
-            history[0, 6, 6] = 1;
-            history[0, 6, 0] = 2;
-            history[0, 0, 6] = 2;
+            RecordHistorySnapshot();
         }//PVP对战开始
         private void button2_Click_1(object sender, EventArgs e)
         {
-            //JudgeGameStart = true;//注释掉使读存档只能人人打
             R = false;
             Reset = false;
+            JudgeGameStart = true;
             label9.Text = "--";
             label1.Text = "--";
             label2.Text = "--";
             label10.Text = "--";
             textBox1.Clear();
+            textBox1.Text = "白子先行";
             init();
+            StepSum = 0;
+            RecordHistorySnapshot();
             MessageBox.Show("Player goes white first!");
         }//PVE对战开始
         private void button4_Click(object sender, EventArgs e)//重置对战
